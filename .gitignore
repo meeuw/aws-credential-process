@@ -1,0 +1,5 @@
+/.coverage
+/__pycache__/
+/aws_credential_process.egg-info/
+/test/__pycache__/
+/dist/
