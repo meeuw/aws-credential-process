@@ -184,7 +184,8 @@ def get_assume_session(access_key, session, role_arn, duration_seconds=None):
     response = client.assume_role(**request)
 
     assume_session = AWSCredSession.load_from_credentials(
-        response["Credentials"], access_key.access_key_id + "-assume-session"
+        response["Credentials"],
+        "{}-assume-session-{}".format(access_key.access_key_id, role_arn),
     )
 
     return assume_session
@@ -195,7 +196,7 @@ def get_assume_session_cached(access_key, session, role_arn, duration_seconds):
     Get session for assumed role with caching
     """
     assume_session = AWSCredSession.get_cached_session(
-        access_key.access_key_id + "-assume-session"
+        "{}-assume-session-{}".format(access_key.access_key_id, role_arn)
     )
 
     if assume_session is None:
