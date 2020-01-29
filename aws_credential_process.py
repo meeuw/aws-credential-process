@@ -255,7 +255,7 @@ def main(
             assume_session = None
         else:
             assume_session = AWSCredSession.get_cached_session(
-                access_key.access_key_id + "-assume-session"
+                "{}-assume-session-{}".format(access_key.access_key_id, assume_role_arn)
             )
         if assume_session is None:
 
