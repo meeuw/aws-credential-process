@@ -10,6 +10,8 @@ import datetime
 import contextlib
 import collections
 import sys
+import configparser
+import os
 import click
 import keyring
 import boto3
@@ -206,8 +208,22 @@ def get_assume_session_cached(access_key, session, role_arn, duration_seconds):
     return assume_session
 
 
+def get_credentials(section):
+    """
+    Return default credentials as specified in ~/.aws/credentials
+    """
+    config = configparser.ConfigParser()
+    config.read(os.path.expanduser("~/.aws/credentials"))
+    if section in config:
+        return (
+            config[section].get("aws_access_key_id"),
+            config[section].get("aws_secret_access_key"),
+        )
+    return (None, None)
+
+
 @click.command()
-@click.option("--access-key-id", required=True)
+@click.option("--access-key-id")
 @click.option("--secret-access-key")
 @click.option("--mfa-oath-slot", required=True)
 @click.option("--mfa-serial-number", required=True)
@@ -215,6 +231,7 @@ def get_assume_session_cached(access_key, session, role_arn, duration_seconds):
 @click.option("--assume-session-duration", type=int)
 @click.option("--assume-role-arn")
 @click.option("--force-renew", default=False)
+@click.option("--credentials-section", default="default")
 def main(
     access_key_id,
     mfa_serial_number,
@@ -224,10 +241,20 @@ def main(
     assume_session_duration=None,
     assume_role_arn=None,
     force_renew=False,
+    credentials_section="default",
 ):
     """
     Get output suitable for aws credential process
     """
+    if access_key_id is None and secret_access_key is None:
+        access_key_id, secret_access_key = get_credentials(credentials_section)
+
+    if not access_key_id:
+        click.echo(
+            "No --access_key_id supplied and could not load from ~/.aws/credentials."
+        )
+        sys.exit(1)
+
     if secret_access_key:
         keyring.set_password("aws_credential_process", access_key_id, secret_access_key)
     else:

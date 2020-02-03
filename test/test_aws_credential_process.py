@@ -1,5 +1,7 @@
 import datetime
 import unittest.mock
+import pytest
+import tempfile
 import freezegun
 import click.testing
 import moto
@@ -76,3 +78,29 @@ def test_main(monkeypatch):
         )
     assert not result.exception, result.output
     assert result.exit_code == 0, result.output
+
+
+def test_mock_get_credentials(monkeypatch):
+    mock_get_credentials = unittest.mock.MagicMock(return_value=(None, None))
+    monkeypatch.setattr("aws_credential_process.get_credentials", mock_get_credentials)
+    runner = click.testing.CliRunner()
+    result = runner.invoke(
+        aws_credential_process.main,
+        [
+            "--mfa-oath-slot",
+            "test-mfa-oath-slot",
+            "--mfa-serial-number",
+            "test-mfa-serial-number",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    mock_get_credentials.assert_called()
+
+
+def test_get_credentials(monkeypatch):
+    with tempfile.NamedTemporaryFile() as credentials:
+        credentials.write(b"""[default]\naa = bbb""")
+        credentials.flush()
+        expanduser = unittest.mock.MagicMock(return_value=credentials.name)
+        monkeypatch.setattr("os.path.expanduser", expanduser)
+    aws_credential_process.get_credentials("default")
