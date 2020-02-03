@@ -125,7 +125,7 @@ def get_mfa_session(
 
     token_code = None
     if len(stdout) == 1:
-        token_code, = stdout
+        (token_code,) = stdout
 
     if not token_code:
         return None
