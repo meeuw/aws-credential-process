@@ -230,7 +230,7 @@ def get_credentials(section):
 @click.option("--mfa-session-duration", type=int)
 @click.option("--assume-session-duration", type=int)
 @click.option("--assume-role-arn")
-@click.option("--force-renew", default=False)
+@click.option("--force-renew", is_flag=True, default=False)
 @click.option("--credentials-section", default="default")
 def main(
     access_key_id,
@@ -251,7 +251,8 @@ def main(
 
     if not access_key_id:
         click.echo(
-            "No --access_key_id supplied and could not load from ~/.aws/credentials."
+            "No --access_key_id supplied and could not load from ~/.aws/credentials.",
+            err=True,
         )
         sys.exit(1)
 
@@ -264,7 +265,8 @@ def main(
 
     if secret_access_key is None:
         click.echo(
-            "Secret access key is not supplied as argument and couldn't it load from keyring."
+            "Secret access key is not supplied as argument and couldn't load from keyring.",
+            err=True,
         )
         sys.exit(1)
 
@@ -292,21 +294,26 @@ def main(
                 mfa_session = get_mfa_session_cached(*mfa_session_request)
 
             if mfa_session is None:
-                click.echo("Failed to get MFA session")
+                click.echo("Failed to get MFA session", err=True)
                 sys.exit(1)
 
             assume_session = get_assume_session(
                 access_key, mfa_session, assume_role_arn, assume_session_duration
             )
 
-        print(assume_session.json_credentials())
+        if assume_session is None:
+            click.echo("Failed to get assume session", err=True)
+            sys.exit(1)
+        else:
+            print(assume_session.json_credentials())
     else:
         if force_renew:
             mfa_session = get_mfa_session(*mfa_session_request)
-            if mfa_session is None:
-                click.echo("Failed to get MFA session")
-                sys.exit(1)
         else:
             mfa_session = get_mfa_session_cached(*mfa_session_request)
 
-        print(mfa_session.json_credentials())
+        if mfa_session is None:
+            click.echo("Failed to get MFA session", err=True)
+            sys.exit(1)
+        else:
+            print(mfa_session.json_credentials())

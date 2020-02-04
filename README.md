@@ -31,7 +31,7 @@ Options:
   --mfa-session-duration INTEGER
   --assume-session-duration INTEGER
   --assume-role-arn TEXT
-  --force-renew TEXT
+  --force-renew
   --credentials-section TEXT
   --help                          Show this message and exit.
 ```
