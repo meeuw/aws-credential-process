@@ -1,5 +1,5 @@
 # Description
-Script to use as `credential_process` for the AWS CLI (including boto3), it caches your MFA session in a keyring and uses an Yubi key to authenticate.
+Script to use as `credential_process` for the AWS CLI (including boto3), it caches your MFA session in a keyring and can use a Yubi key to authenticate.
 
 # Installing
 You can install aws-credential-process using pip:
@@ -26,7 +26,7 @@ Usage: aws-credential-process [OPTIONS]
 Options:
   --access-key-id TEXT
   --secret-access-key TEXT
-  --mfa-oath-slot TEXT            [required]
+  --mfa-oath-slot TEXT
   --mfa-serial-number TEXT        [required]
   --mfa-session-duration INTEGER
   --assume-session-duration INTEGER

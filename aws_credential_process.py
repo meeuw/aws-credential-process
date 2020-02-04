@@ -114,26 +114,17 @@ def ykman_main(*args):
 
 
 def get_mfa_session(
-    access_key, duration_seconds=None, serial_number=None, oath_slot=None
+    access_key, duration_seconds=None, serial_number=None, token_code=None
 ):
     """
-    Get MFA enabled session, optionally use code from yubikey
+    Get MFA enabled session
     """
     request = {}
     if duration_seconds is not None:
         request["DurationSeconds"] = duration_seconds
 
-    stdout, _ = ykman_main("oath", "code", "-s", oath_slot)
-
-    token_code = None
-    if len(stdout) == 1:
-        (token_code,) = stdout
-
-    if not token_code:
-        return None
-
     request["SerialNumber"] = serial_number
-    request["TokenCode"] = token_code
+    request["TokenCode"] = token_code()
 
     client = boto3.client(
         "sts",
@@ -150,7 +141,7 @@ def get_mfa_session(
 
 
 def get_mfa_session_cached(
-    access_key, duration_seconds=None, serial_number=None, oath_slot=None
+    access_key, duration_seconds=None, serial_number=None, token_code=None
 ):
     """
     Get MFA enabled session with caching
@@ -161,7 +152,7 @@ def get_mfa_session_cached(
 
     if mfa_session is None:
         mfa_session = get_mfa_session(
-            access_key, duration_seconds, serial_number, oath_slot
+            access_key, duration_seconds, serial_number, token_code
         )
 
     return mfa_session
@@ -225,7 +216,7 @@ def get_credentials(section):
 @click.command()
 @click.option("--access-key-id")
 @click.option("--secret-access-key")
-@click.option("--mfa-oath-slot", required=True)
+@click.option("--mfa-oath-slot")
 @click.option("--mfa-serial-number", required=True)
 @click.option("--mfa-session-duration", type=int)
 @click.option("--assume-session-duration", type=int)
@@ -272,11 +263,28 @@ def main(
 
     access_key = AWSCred(access_key_id, secret_access_key)
 
+    def token_code():
+        token_code = None
+        if mfa_oath_slot:
+            stdout, _ = ykman_main("oath", "code", "-s", mfa_oath_slot)
+
+            if len(stdout) == 1:
+                (token_code,) = stdout
+
+        if not token_code:
+            token_code = str(
+                click.prompt(
+                    "Cannot get token code from Yubi key, please enter manually",
+                    type=int,
+                )
+            )
+        return token_code
+
     mfa_session_request = (
         access_key,
         mfa_session_duration,
         mfa_serial_number,
-        mfa_oath_slot,
+        token_code,
     )
 
     if assume_role_arn:
