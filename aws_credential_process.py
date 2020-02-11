@@ -12,6 +12,7 @@ import collections
 import sys
 import configparser
 import os
+import functools
 import click
 import keyring
 import boto3
@@ -213,6 +214,33 @@ def get_credentials(section):
     return (None, None)
 
 
+class InsuffientArguments(Exception):
+    pass
+
+
+def get_access_key(arguments, credentials_file, secret_access_key_keyring):
+    access_key_id = arguments.access_key_id
+    secret_access_key = arguments.secret_access_key
+    if access_key_id is None and secret_access_key is None:
+        access_key_id, secret_access_key = credentials_file()
+
+    if not access_key_id:
+        raise InsuffientArguments(
+            "No --access_key_id supplied and could not load from ~/.aws/credentials."
+        )
+
+    if not secret_access_key:
+        secret_access_key = secret_access_key_keyring()
+        print(secret_access_key)
+
+    if secret_access_key is None:
+        raise InsuffientArguments(
+            "Secret access key is not supplied as argument and couldn't load from keyring."
+        )
+
+    return AWSCred(access_key_id, secret_access_key)
+
+
 @click.command()
 @click.option("--access-key-id")
 @click.option("--secret-access-key")
@@ -237,31 +265,20 @@ def main(
     """
     Get output suitable for aws credential process
     """
-    if access_key_id is None and secret_access_key is None:
-        access_key_id, secret_access_key = get_credentials(credentials_section)
 
-    if not access_key_id:
-        click.echo(
-            "No --access_key_id supplied and could not load from ~/.aws/credentials.",
-            err=True,
+    try:
+        access_key = get_access_key(
+            AWSCred(access_key_id, secret_access_key),
+            functools.partial(get_credentials, credentials_section),
+            functools.partial(keyring.get_password, "aws_credential_process", access_key_id)
         )
+    except InsuffientArguments as e:
+        click.echo(e.args[0], err=True)
         sys.exit(1)
 
-    if secret_access_key:
-        keyring.set_password("aws_credential_process", access_key_id, secret_access_key)
-    else:
-        secret_access_key = keyring.get_password(
-            "aws_credential_process", access_key_id
-        )
-
-    if secret_access_key is None:
-        click.echo(
-            "Secret access key is not supplied as argument and couldn't load from keyring.",
-            err=True,
-        )
-        sys.exit(1)
-
-    access_key = AWSCred(access_key_id, secret_access_key)
+    keyring.set_password(
+        "aws_credential_process", access_key.access_key_id, access_key.secret_access_key
+    )
 
     def token_code():
         token_code = None
