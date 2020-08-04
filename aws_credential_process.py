@@ -12,10 +12,15 @@ import collections
 import sys
 import configparser
 import os
+import logging
+
 import click
 import keyring
 import boto3
 import ykman.cli.__main__
+
+# Restore logger, set by ykman.cli.__main__ import
+logging.disable(logging.NOTSET)
 
 UTC = datetime.timezone.utc
 
@@ -54,12 +59,18 @@ class AWSCredSession:
         """
         cached_session = keyring.get_password("aws_credential_process", label)
         if cached_session is not None:
+            logging.info("Cache hit for session %s", label)
             cached_session = json.loads(cached_session)
             cached_session["expiration"] = datetime.datetime.strptime(
                 cached_session["expiration"], "%Y-%m-%dT%H:%M:%S%z"
             )
             # use a small margin to prevent working with an almost expired token
             margin = datetime.timedelta(seconds=10)
+            logging.info(
+                "Check expiration %s > %s",
+                cached_session["expiration"],
+                datetime.datetime.now(UTC) - margin,
+            )
             if cached_session["expiration"] > (datetime.datetime.now(UTC) - margin):
                 return cls(
                     expiration=cached_session["expiration"],
@@ -70,6 +81,7 @@ class AWSCredSession:
                     session_token=cached_session["session_token"],
                     label=label,
                 )
+        logging.info("Cache miss for session %s", label)
         return None
 
     @classmethod
@@ -223,6 +235,7 @@ def get_credentials(section):
 @click.option("--assume-role-arn")
 @click.option("--force-renew", is_flag=True, default=False)
 @click.option("--credentials-section", default="default")
+@click.option("--log-file")
 def main(
     access_key_id,
     mfa_serial_number,
@@ -233,17 +246,20 @@ def main(
     assume_role_arn=None,
     force_renew=False,
     credentials_section="default",
+    log_file=None,
 ):
     """
     Get output suitable for aws credential process
     """
+    if log_file:
+        logging.basicConfig(filename=log_file, level=logging.DEBUG)
+
     if access_key_id is None and secret_access_key is None:
         access_key_id, secret_access_key = get_credentials(credentials_section)
 
     if not access_key_id:
-        click.echo(
-            "No --access_key_id supplied and could not load from ~/.aws/credentials.",
-            err=True,
+        logging.warning(
+            "No --access_key_id supplied and could not load from ~/.aws/credentials."
         )
         sys.exit(1)
 
@@ -255,9 +271,8 @@ def main(
         )
 
     if secret_access_key is None:
-        click.echo(
-            "Secret access key is not supplied as argument and couldn't load from keyring.",
-            err=True,
+        logging.warning(
+            "Secret access key is not supplied as argument and couldn't it load from keyring."
         )
         sys.exit(1)
 
@@ -302,7 +317,7 @@ def main(
                 mfa_session = get_mfa_session_cached(*mfa_session_request)
 
             if mfa_session is None:
-                click.echo("Failed to get MFA session", err=True)
+                logging.warning("Failed to get MFA session")
                 sys.exit(1)
 
             assume_session = get_assume_session(
@@ -310,7 +325,7 @@ def main(
             )
 
         if assume_session is None:
-            click.echo("Failed to get assume session", err=True)
+            logging.warning("Failed to get assume session")
             sys.exit(1)
         else:
             print(assume_session.json_credentials())
@@ -321,7 +336,7 @@ def main(
             mfa_session = get_mfa_session_cached(*mfa_session_request)
 
         if mfa_session is None:
-            click.echo("Failed to get MFA session", err=True)
+            logging.warning("Failed to get MFA session")
             sys.exit(1)
         else:
             print(mfa_session.json_credentials())
