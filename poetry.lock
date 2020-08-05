@@ -634,6 +634,14 @@ toml = ">=0.7.1"
 
 [[package]]
 category = "main"
+description = "A pythonic wrapper around pinentry for secure password input"
+name = "pynentry"
+optional = false
+python-versions = "*"
+version = "0.1.3"
+
+[[package]]
+category = "main"
 description = "Python wrapper module around the OpenSSL library"
 name = "pyopenssl"
 optional = false
@@ -1018,7 +1026,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "9fb9ff489d00778f9fec3dae1c62034a7f49e22384c773e4423b0991ffe43d9e"
+content-hash = "298672acf006cea94f098d348c833f320afc631ee238e585507398d32ac4bb9c"
 python-versions = "^3.7"
 
 [metadata.files]
@@ -1352,6 +1360,10 @@ pylint = [
     {file = "pylint-2.5.3-py3-none-any.whl", hash = "sha256:d0ece7d223fe422088b0e8f13fa0a1e8eb745ebffcb8ed53d3e95394b6101a1c"},
     {file = "pylint-2.5.3.tar.gz", hash = "sha256:7dd78437f2d8d019717dbf287772d0b2dbdfd13fc016aa7faa08d67bccc46adc"},
 ]
+pynentry = [
+    {file = "pynentry-0.1.3-py3-none-any.whl", hash = "sha256:a80b51160e10171aad44315dc8184f10b18c2e8cf05d622492dcc4b3dc2add15"},
+    {file = "pynentry-0.1.3.tar.gz", hash = "sha256:269169d6d1bbcbb6f40438fed1a794dd3e751b91a7467af92971ca11f2b3098d"},
+]
 pyopenssl = [
     {file = "pyOpenSSL-19.1.0-py2.py3-none-any.whl", hash = "sha256:621880965a720b8ece2f1b2f54ea2071966ab00e2970ad2ce11d596102063504"},
     {file = "pyOpenSSL-19.1.0.tar.gz", hash = "sha256:9a24494b2602aaf402be5c9e30a0b82d4a5c67528fe8fb475e3f3bc00dd69507"},
@@ -1371,8 +1383,6 @@ pyscard = [
     {file = "pyscard-1.9.9-cp27-cp27m-macosx_10_14_x86_64.whl", hash = "sha256:c213a94585a48f8f1ff3c36c06fa3a162d2fd7f2c89240ac632bd38a3fa5df9b"},
     {file = "pyscard-1.9.9-cp36-cp36m-win_amd64.whl", hash = "sha256:6620a74f58d5fa9076544263bb4e42c946eb20f315c896d14a7e5743d5431469"},
     {file = "pyscard-1.9.9-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:a047738c58d05b4dab15aa9c99fbd92f8d0670900de89c68bec247a422f8d8c7"},
-    {file = "pyscard-1.9.9-cp37-cp37m-win_amd64.whl", hash = "sha256:9725a9476c4fbda7582d0b4b9c6796386759714144d34bbe66a4faacf574b9da"},
-    {file = "pyscard-1.9.9-cp38-cp38-win_amd64.whl", hash = "sha256:27939060711e1518739b6c02f455bb22902d8a81dd61227f831ddbc16b960e8f"},
     {file = "pyscard-1.9.9.tar.gz", hash = "sha256:e6bde541990183858740793806b1c7f4e798670519ae4c96145f35d5d7944c20"},
 ]
 pytest = [

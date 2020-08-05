@@ -13,11 +13,14 @@ import sys
 import configparser
 import os
 import logging
+import shutil
+import time
 
 import click
 import keyring
 import boto3
 import ykman.cli.__main__
+import pynentry
 
 # Restore logger, set by ykman.cli.__main__ import
 logging.disable(logging.NOTSET)
@@ -235,6 +238,7 @@ def get_credentials(section):
 @click.option("--assume-role-arn")
 @click.option("--force-renew", is_flag=True, default=False)
 @click.option("--credentials-section", default="default")
+@click.option("--pin-entry", default="pinentry")
 @click.option("--log-file")
 def main(
     access_key_id,
@@ -246,6 +250,7 @@ def main(
     assume_role_arn=None,
     force_renew=False,
     credentials_section="default",
+    pin_entry="pinentry",
     log_file=None,
 ):
     """
@@ -279,20 +284,28 @@ def main(
     access_key = AWSCred(access_key_id, secret_access_key)
 
     def token_code():
-        token_code = None
-        if mfa_oath_slot:
-            stdout, _ = ykman_main("oath", "code", "-s", mfa_oath_slot)
+        for _ in range(5):
+            token_code = None
+            if mfa_oath_slot:
+                stdout, _ = ykman_main("oath", "code", "-s", mfa_oath_slot)
 
-            if len(stdout) == 1:
-                (token_code,) = stdout
+                if len(stdout) == 1:
+                    (token_code,) = stdout
 
-        if not token_code:
-            token_code = str(
-                click.prompt(
-                    "Cannot get token code from Yubi key, please enter manually",
-                    type=int,
-                )
-            )
+            if not token_code and shutil.which(pin_entry):
+                with pynentry.PynEntry(executable=pin_entry) as p:
+                    p.description = (
+                        f"Couldn't get a OATH code for {mfa_oath_slot}, please enter manually.\n"
+                        "Confirm as empty or cancel to retry using yubikey."
+                    )
+                    p.prompt = "aws-credential-process"
+                    try:
+                        token_code = p.get_pin()
+                    except pynentry.PinEntryCancelled:
+                        token_code = None
+            else:
+                time.sleep(1)
+
         return token_code
 
     mfa_session_request = (
