@@ -306,6 +306,9 @@ def main(
             else:
                 time.sleep(1)
 
+            if token_code is not None:
+                break
+
         return token_code
 
     mfa_session_request = (
