@@ -74,7 +74,10 @@ class AWSCredSession:
                 cached_session["expiration"],
                 datetime.datetime.now(UTC) - margin,
             )
-            if cached_session["expiration"] > (datetime.datetime.now(UTC) - margin):
+            # use cache:      expiration     >          now        +   margin
+            # True:      2020-01-01 12:00:00 > 2020-01-01 11:00:00 + 10 seconds
+            # False:     2020-01-01 12:00:00 > 2020-01-01 11:59:51 + 10 seconds
+            if cached_session["expiration"] > (datetime.datetime.now(UTC) + margin):
                 return cls(
                     expiration=cached_session["expiration"],
                     awscred=AWSCred(
