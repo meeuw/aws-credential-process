@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aws-credential-process"
-version = "0.7.0"
+version = "0.8.0"
 description = "AWS Credential Process"
 authors = ["Dick Marinus <dick@mrns.nl>"]
 readme = "README.md"
@@ -8,7 +8,7 @@ repository = "https://github.com/meeuw/aws-credential-process"
 keywords = ['AWS', 'MFA', 'keyring', 'keychain', 'yubikey']
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.6"
 boto3 = "^1.11"
 keyring = "^21.3"
 yubikey-manager = "3.1.1"
