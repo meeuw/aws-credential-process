@@ -58,7 +58,7 @@ def test_main(monkeypatch):
     with moto.mock_sts():
         runner = click.testing.CliRunner()
         result = runner.invoke(
-            aws_credential_process.main,
+            aws_credential_process.click_main,
             [
                 "--access-key-id",
                 "test-access-key-id",
@@ -85,7 +85,7 @@ def test_mock_get_credentials(monkeypatch):
     monkeypatch.setattr("aws_credential_process.get_credentials", mock_get_credentials)
     runner = click.testing.CliRunner()
     result = runner.invoke(
-        aws_credential_process.main,
+        aws_credential_process.click_main,
         [
             "--mfa-oath-slot",
             "test-mfa-oath-slot",
@@ -104,3 +104,69 @@ def test_get_credentials(monkeypatch):
         expanduser = unittest.mock.MagicMock(return_value=credentials.name)
         monkeypatch.setattr("os.path.expanduser", expanduser)
     aws_credential_process.get_credentials("default")
+
+
+def test_parse_config():
+    assert aws_credential_process.parse_config(
+        {
+            "org": [
+                {
+                    "mfa_serial_number": "arn:aws:iam::123457890123:mfa/user",
+                    "credentials_section": 123457890123,
+                    "mfa_oath_slot": "Amazon Web Services:user@123457890123",
+                    "dept": [
+                        {
+                            "assume_role_arn": "arn:aws:iam::{section}:role/Department/Role",
+                            "3210987654321": [{}],
+                            "7890123456789": [{}],
+                        }
+                    ],
+                    "3456789012345": [
+                        {"assume_role_arn": "arn:aws:iam::{section}:role/Other/Role"}
+                    ],
+                }
+            ],
+            "other": [
+                {
+                    "mfa_oath_slot": "Amazon Web Services:user@{section}",
+                    "mfa_serial_number": "arn:aws:iam::{section}:mfa/user",
+                    "credentials_section": "{section}",
+                }
+            ],
+        }
+    ) == {
+        "3210987654321": {
+            "credentials_section": 123457890123,
+            "mfa_oath_slot": "Amazon Web Services:user@123457890123",
+            "assume_role_arn": "arn:aws:iam::3210987654321:role/Department/Role",
+            "mfa_serial_number": "arn:aws:iam::123457890123:mfa/user",
+        },
+        "3456789012345": {
+            "credentials_section": 123457890123,
+            "mfa_oath_slot": "Amazon Web Services:user@123457890123",
+            "assume_role_arn": "arn:aws:iam::3456789012345:role/Other/Role",
+            "mfa_serial_number": "arn:aws:iam::123457890123:mfa/user",
+        },
+        "7890123456789": {
+            "credentials_section": 123457890123,
+            "mfa_oath_slot": "Amazon Web Services:user@123457890123",
+            "assume_role_arn": "arn:aws:iam::7890123456789:role/Department/Role",
+            "mfa_serial_number": "arn:aws:iam::123457890123:mfa/user",
+        },
+        "dept": {
+            "credentials_section": 123457890123,
+            "mfa_oath_slot": "Amazon Web Services:user@123457890123",
+            "assume_role_arn": "arn:aws:iam::dept:role/Department/Role",
+            "mfa_serial_number": "arn:aws:iam::123457890123:mfa/user",
+        },
+        "org": {
+            "credentials_section": 123457890123,
+            "mfa_oath_slot": "Amazon Web Services:user@123457890123",
+            "mfa_serial_number": "arn:aws:iam::123457890123:mfa/user",
+        },
+        "other": {
+            "credentials_section": "other",
+            "mfa_oath_slot": "Amazon Web Services:user@other",
+            "mfa_serial_number": "arn:aws:iam::other:mfa/user",
+        },
+    }

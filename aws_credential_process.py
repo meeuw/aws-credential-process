@@ -237,30 +237,40 @@ def get_credentials(section):
     return (None, None)
 
 
-@click.command()
-@click.option("--access-key-id")
-@click.option("--secret-access-key")
-@click.option("--mfa-oath-slot")
-@click.option("--mfa-serial-number", required=True)
-@click.option("--mfa-session-duration", type=int)
-@click.option("--assume-session-duration", type=int)
-@click.option("--assume-role-arn")
-@click.option("--force-renew", is_flag=True, default=False)
-@click.option("--credentials-section", default="default")
-@click.option("--pin-entry", default="pinentry")
-@click.option("--log-file")
+def traverse_config(config, accumulated, flattened):
+    for k, v in config.items():
+        if isinstance(v, list):
+            for i in v:
+                accumulated_copy = accumulated.copy()
+                flattened[k] = traverse_config(i, accumulated_copy, flattened)
+        else:
+            accumulated[k] = v
+
+    return accumulated
+
+
+def parse_config(config):
+    flattened = {}
+    traverse_config(config, {}, flattened)
+    for pk, pv in flattened.items():
+        for k, v in pv.items():
+            if isinstance(v, str):
+                pv[k] = v.format(section=pk)
+    return flattened
+
+
 def main(
+    log_file,
     access_key_id,
-    mfa_serial_number,
+    secret_access_key,
+    credentials_section,
     mfa_oath_slot,
-    mfa_session_duration=None,
-    secret_access_key=None,
-    assume_session_duration=None,
-    assume_role_arn=None,
-    force_renew=False,
-    credentials_section="default",
-    pin_entry="pinentry",
-    log_file=None,
+    pin_entry,
+    mfa_session_duration,
+    mfa_serial_number,
+    assume_role_arn,
+    force_renew,
+    assume_session_duration,
 ):
     """
     Get output suitable for aws credential process
@@ -365,3 +375,94 @@ def main(
             sys.exit(1)
         else:
             print(mfa_session.json_credentials())
+
+
+@click.command()
+@click.option("--access-key-id")
+@click.option("--secret-access-key")
+@click.option("--mfa-oath-slot")
+@click.option("--mfa-serial-number")
+@click.option("--mfa-session-duration", type=int)
+@click.option("--assume-session-duration", type=int)
+@click.option("--assume-role-arn")
+@click.option("--force-renew", is_flag=True)
+@click.option("--credentials-section")
+@click.option("--pin-entry")
+@click.option("--log-file")
+@click.option("--config-section")
+@click.option("--config-file", default="~/.config/aws-credential-process/config.toml")
+def click_main(
+    access_key_id,
+    mfa_serial_number,
+    mfa_oath_slot,
+    mfa_session_duration,
+    secret_access_key,
+    assume_session_duration,
+    assume_role_arn,
+    force_renew,
+    credentials_section,
+    pin_entry,
+    log_file,
+    config_section,
+    config_file,
+):
+    """
+    Get output suitable for aws credential process
+    """
+    config_file = os.path.expanduser(config_file)
+    if config_section:
+        if not os.path.exists(config_file):
+            click.echo(f"Config file {config_file} doesn't exist.", err=True)
+            sys.exit(1)
+
+        with open(config_file) as f:
+            flattened = parse_config(toml.load(f))
+
+        if not config_section in flattened:
+            click.echo(f"{config_section} not found in config file", err=True)
+            sys.exit(1)
+
+        config = flattened[config_section]
+    else:
+        config = {}
+
+    if log_file:
+        config["log_file"] = log_file
+    if access_key_id:
+        config["access_key_id"] = access_key_id
+    if mfa_serial_number:
+        config["mfa_serial_number"] = mfa_serial_number
+    if mfa_oath_slot:
+        config["mfa_oath_slot"] = mfa_oath_slot
+    if mfa_session_duration:
+        config["mfa_session_duration"] = mfa_session_duration
+    if secret_access_key:
+        config["secret_access_key"] = secret_access_key
+    if assume_session_duration:
+        config["assume_session_duration"] = assume_session_duration
+    if assume_role_arn:
+        config["assume_role_arn"] = assume_role_arn
+    if force_renew:
+        config["force_renew=False"] = force_renew
+    if credentials_section:
+        config["credentials_section"] = credentials_section
+    if pin_entry:
+        config["pin_entry"] = pin_entry
+
+    if not config.get("mfa_serial_number"):
+        click.echo("Required mfa_serial_number not set", err=True)
+        sys.exit(1)
+
+    main(
+        config.get("log_file"),
+        config.get("access_key_id"),
+        config.get("secret_access_key"),
+        config.get("credentials_section", "default"),
+        config.get("mfa_oath_slot"),
+        config.get("pin_entry", "pinentry"),
+        config.get("mfa_session_duration"),
+        config.get("mfa_serial_number"),
+        config.get("assume_role_arn"),
+        config.get("force_renew", False),
+        config.get("assume_session_duration"),
+    )

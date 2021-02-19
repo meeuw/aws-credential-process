@@ -38,7 +38,7 @@ Options:
   --access-key-id TEXT
   --secret-access-key TEXT
   --mfa-oath-slot TEXT
-  --mfa-serial-number TEXT        [required]
+  --mfa-serial-number TEXT
   --mfa-session-duration INTEGER
   --assume-session-duration INTEGER
   --assume-role-arn TEXT
@@ -46,6 +46,8 @@ Options:
   --credentials-section TEXT
   --pin-entry TEXT
   --log-file TEXT
+  --config-section TEXT
+  --config-file TEXT
   --help                          Show this message and exit.
 ```
 
@@ -62,3 +64,72 @@ it will be cached in your keyring.
 
 When you don't supply the access-key-id it will be loaded from `~/.aws/credentials`.
 You can use another section than "default" by using the credentials-section argument.
+
+## Configuration
+
+aws-credential-process can also use a configuration file, the default location of
+this file is `~/.config/aws-credential-process/config.toml`. This file contains
+defaults so you don't have to supply all of the arguments.
+
+You can configure a default pin-entry program like:
+
+```toml
+pin_entry = /usr/local/bin/pin_entry
+```
+
+Or you can define multiple config-sections:
+
+```toml
+[123457890123]
+mfa_oath_slot="Amazon Web Services:user@123457890123"
+assume_role_arn="arn:aws:iam::123457890123:role/Other/Role"
+credentials_section="123457890123"
+mfa_serial_number="arn:aws:iam::123457890123:mfa/user"
+
+[098765432101]
+mfa_oath_slot="Amazon Web Services:user@098765432101"
+credentials_section="098765432101"
+mfa_serial_number="arn:aws:iam::098765432101:mfa/user"
+```
+
+If you need to assume roles from a certain AWS account you'll end up with a lot
+of simular entries. To make this simple the configuration can be defined
+hierarchical.
+
+```toml
+[[org]]
+mfa_oath_slot="Amazon Web Services:user@123457890123"
+assume_role_arn="arn:aws:iam::{section}:role/Other/Role"
+credentials_section="123457890123"
+mfa_serial_number="arn:aws:iam::123457890123:mfa/user"
+
+[[org.098765432101]]
+[[org.567890123456]]
+```
+
+This would be the same as the following configuration:
+
+```toml
+[098765432101]
+mfa_oath_slot="Amazon Web Services:user@123457890123"
+assume_role_arn="arn:aws:iam::098765432101:role/Other/Role"
+credentials_section="123457890123"
+mfa_serial_number="arn:aws:iam::123457890123:mfa/user"
+
+[567890123456]
+mfa_oath_slot="Amazon Web Services:user@123457890123"
+assume_role_arn="arn:aws:iam::567890123456:role/Other/Role"
+credentials_section="123457890123"
+mfa_serial_number="arn:aws:iam::123457890123:mfa/user"
+```
+
+With the above configuration aws-credential-process can be used like this in
+`~/.aws/config`:
+
+```ini
+[profile profile1]
+credential_process = /home/user/venv/aws_credential_process/bin/aws-credential-process --config-section=098765432101
+
+[profile profile2]
+credential_process = /home/user/venv/aws_credential_process/bin/aws-credential-process --config-section=567890123456
+```
