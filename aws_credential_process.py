@@ -2,8 +2,6 @@
 """
 Module to get MFA authenticated session tokens
 """
-
-
 import io
 import json
 import datetime
@@ -15,12 +13,20 @@ import os
 import logging
 import shutil
 import time
+import warnings
 
 import click
 import keyring
 import boto3
-import ykman.cli.__main__
+
+from cryptography.utils import CryptographyDeprecationWarning
+
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+    import ykman.cli.__main__
+
 import pynentry
+import toml
 
 # Restore logger, set by ykman.cli.__main__ import
 logging.disable(logging.NOTSET)
