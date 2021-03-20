@@ -37,16 +37,23 @@ Usage: aws-credential-process [OPTIONS]
 Options:
   --access-key-id TEXT
   --secret-access-key TEXT
-  --mfa-oath-slot TEXT
-  --mfa-serial-number TEXT
-  --mfa-session-duration INTEGER
+  --mfa-oath-slot TEXT            how the MFA slot is named, check using ykman
+                                  oath code
+
+  --mfa-serial-number TEXT        MFA serial number, see IAM console
+  --mfa-session-duration INTEGER  duration in seconds, use zero to assume role
+                                  without session
+
   --assume-session-duration INTEGER
-  --assume-role-arn TEXT
+                                  duration in seconds
+  --assume-role-arn TEXT          IAM Role to be assumed, optional
   --force-renew
-  --credentials-section TEXT
-  --pin-entry TEXT
+  --credentials-section TEXT      Use this section from ~/.aws/credentials
+  --pin-entry TEXT                pin-entry helper, should be compatible with
+                                  Assuan protocol (GPG)
+
   --log-file TEXT
-  --config-section TEXT
+  --config-section TEXT           Use this section in config-file
   --config-file TEXT
   --help                          Show this message and exit.
 ```
@@ -58,12 +65,6 @@ aws-credential-process is meant to be used as `credential_process` in your
 [profile yourprofile]
 credential_process = /home/user/venv/aws_credential_process/bin/aws-credential-process --mfa-oath-slot "Amazon Web Services:test@example.com" --mfa-serial-number arn:aws:iam::123456789012:mfa/john.doe --assume-role-arn arn:aws:iam::123456789012:role/YourRole
 ```
-
-If you've supplied the secret-access-key once you can omit it with the next call,
-it will be cached in your keyring.
-
-When you don't supply the access-key-id it will be loaded from `~/.aws/credentials`.
-You can use another section than "default" by using the credentials-section argument.
 
 ## Configuration
 
@@ -133,3 +134,19 @@ credential_process = /home/user/venv/aws_credential_process/bin/aws-credential-p
 [profile profile2]
 credential_process = /home/user/venv/aws_credential_process/bin/aws-credential-process --config-section=567890123456
 ```
+
+## Optional arguments
+
+If you've supplied the secret-access-key once you can omit it with the next call,
+it will be cached in your keyring.
+
+When you don't supply the access-key-id it will be loaded from `~/.aws/credentials`.
+You can use another section than "default" by using the credentials-section argument.
+
+If you don't specify `*-session-duration` the default value from AWS will be used
+(3600 seconds). When `--mfa-session-duration` is set to `0` and you use `--assume-role-arn`
+a role will be assumed without using a session. Some API calls can't be made when the role
+is assumed using an MFA session.
+
+You can also omit the `--assume-role-arn`, then you can use an MFA authenticated session
+using your permanent IAM credentials.

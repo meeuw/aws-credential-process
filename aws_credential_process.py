@@ -147,8 +147,10 @@ def get_mfa_session(
     if duration_seconds is not None:
         request["DurationSeconds"] = duration_seconds
 
-    request["SerialNumber"] = serial_number
-    request["TokenCode"] = token_code()
+    if serial_number:
+        request["SerialNumber"] = serial_number
+    if token_code:
+        request["TokenCode"] = token_code()
 
     client = boto3.client(
         "sts",
@@ -182,7 +184,14 @@ def get_mfa_session_cached(
     return mfa_session
 
 
-def get_assume_session(access_key, session, role_arn, duration_seconds=None):
+def get_assume_session(
+    access_key,
+    session,
+    role_arn,
+    duration_seconds=None,
+    serial_number=None,
+    token_code=None,
+):
     """
     Get session for assumed role
     """
@@ -191,12 +200,25 @@ def get_assume_session(access_key, session, role_arn, duration_seconds=None):
     if duration_seconds is not None:
         request["DurationSeconds"] = duration_seconds
 
-    client = boto3.client(
-        "sts",
-        aws_access_key_id=session.awscred.access_key_id,
-        aws_secret_access_key=session.awscred.secret_access_key,
-        aws_session_token=session.session_token,
-    )
+    if serial_number:
+        request["SerialNumber"] = serial_number
+
+    if token_code:
+        request["TokenCode"] = token_code()
+
+    if session is None:
+        client = boto3.client(
+            "sts",
+            aws_access_key_id=access_key.access_key_id,
+            aws_secret_access_key=access_key.secret_access_key,
+        )
+    else:
+        client = boto3.client(
+            "sts",
+            aws_access_key_id=session.awscred.access_key_id,
+            aws_secret_access_key=session.awscred.secret_access_key,
+            aws_session_token=session.session_token,
+        )
 
     response = client.assume_role(**request)
 
@@ -208,7 +230,9 @@ def get_assume_session(access_key, session, role_arn, duration_seconds=None):
     return assume_session
 
 
-def get_assume_session_cached(access_key, session, role_arn, duration_seconds):
+def get_assume_session_cached(
+    access_key, session, role_arn, duration_seconds, serial_number=None, token_code=None
+):
     """
     Get session for assumed role with caching
     """
@@ -218,7 +242,7 @@ def get_assume_session_cached(access_key, session, role_arn, duration_seconds):
 
     if assume_session is None:
         assume_session = get_assume_session(
-            access_key, session, role_arn, duration_seconds
+            access_key, session, role_arn, duration_seconds, serial_number, token_code
         )
     return assume_session
 
@@ -302,6 +326,9 @@ def main(
 
     access_key = AWSCred(access_key_id, secret_access_key)
 
+    if mfa_session_duration is not None:
+        mfa_session_duration = int(mfa_session_duration)
+
     def token_code():
         for _ in range(5):
             token_code = None
@@ -330,12 +357,18 @@ def main(
 
         return token_code
 
-    mfa_session_request = (
-        access_key,
-        mfa_session_duration,
-        mfa_serial_number,
-        token_code,
-    )
+    if mfa_session_duration == 0:
+        mfa_session_request = (
+            access_key,
+            mfa_session_duration,
+        )
+    else:
+        mfa_session_request = (
+            access_key,
+            mfa_session_duration,
+            mfa_serial_number,
+            token_code,
+        )
 
     if assume_role_arn:
         if force_renew:
@@ -346,18 +379,31 @@ def main(
             )
         if assume_session is None:
 
-            if force_renew:
-                mfa_session = get_mfa_session(*mfa_session_request)
+            if mfa_session_duration == 0:
+                mfa_session = None
             else:
-                mfa_session = get_mfa_session_cached(*mfa_session_request)
+                if force_renew:
+                    mfa_session = get_mfa_session(*mfa_session_request)
+                else:
+                    mfa_session = get_mfa_session_cached(*mfa_session_request)
 
-            if mfa_session is None:
-                logging.warning("Failed to get MFA session")
-                sys.exit(1)
+                if mfa_session is None:
+                    logging.warning("Failed to get MFA session")
+                    sys.exit(1)
 
-            assume_session = get_assume_session(
-                access_key, mfa_session, assume_role_arn, assume_session_duration
-            )
+            if mfa_session_duration == 0:
+                assume_session = get_assume_session(
+                    access_key,
+                    mfa_session,
+                    assume_role_arn,
+                    assume_session_duration,
+                    mfa_serial_number,
+                    token_code,
+                )
+            else:
+                assume_session = get_assume_session(
+                    access_key, mfa_session, assume_role_arn, assume_session_duration
+                )
 
         if assume_session is None:
             logging.warning("Failed to get assume session")
@@ -365,6 +411,10 @@ def main(
         else:
             print(assume_session.json_credentials())
     else:
+        if mfa_session_duration == 0:
+            logging.warning("Cannot do MFA without session")
+            sys.exit(1)
+
         if force_renew:
             mfa_session = get_mfa_session(*mfa_session_request)
         else:
@@ -380,16 +430,25 @@ def main(
 @click.command()
 @click.option("--access-key-id")
 @click.option("--secret-access-key")
-@click.option("--mfa-oath-slot")
-@click.option("--mfa-serial-number")
-@click.option("--mfa-session-duration", type=int)
-@click.option("--assume-session-duration", type=int)
-@click.option("--assume-role-arn")
+@click.option(
+    "--mfa-oath-slot", help="how the MFA slot is named, check using ykman oath code"
+)
+@click.option("--mfa-serial-number", help="MFA serial number, see IAM console")
+@click.option(
+    "--mfa-session-duration",
+    type=int,
+    help="duration in seconds, use zero to assume role without session",
+)
+@click.option("--assume-session-duration", help="duration in seconds", type=int)
+@click.option("--assume-role-arn", help="IAM Role to be assumed, optional")
 @click.option("--force-renew", is_flag=True)
-@click.option("--credentials-section")
-@click.option("--pin-entry")
+@click.option("--credentials-section", help="Use this section from ~/.aws/credentials")
+@click.option(
+    "--pin-entry",
+    help="pin-entry helper, should be compatible with Assuan protocol (GPG)",
+)
 @click.option("--log-file")
-@click.option("--config-section")
+@click.option("--config-section", help="Use this section in config-file")
 @click.option("--config-file", default="~/.config/aws-credential-process/config.toml")
 def click_main(
     access_key_id,
@@ -434,7 +493,7 @@ def click_main(
         config["mfa_serial_number"] = mfa_serial_number
     if mfa_oath_slot:
         config["mfa_oath_slot"] = mfa_oath_slot
-    if mfa_session_duration:
+    if mfa_session_duration is not None:
         config["mfa_session_duration"] = mfa_session_duration
     if secret_access_key:
         config["secret_access_key"] = secret_access_key
@@ -443,7 +502,7 @@ def click_main(
     if assume_role_arn:
         config["assume_role_arn"] = assume_role_arn
     if force_renew:
-        config["force_renew=False"] = force_renew
+        config["force_renew"] = force_renew
     if credentials_section:
         config["credentials_section"] = credentials_section
     if pin_entry:
