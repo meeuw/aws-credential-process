@@ -188,6 +188,7 @@ def get_assume_session(
     access_key,
     session,
     role_arn,
+    policy_arns,
     duration_seconds=None,
     serial_number=None,
     token_code=None,
@@ -205,6 +206,9 @@ def get_assume_session(
 
     if token_code:
         request["TokenCode"] = token_code()
+
+    if policy_arns:
+        request["PolicyArns"] = list({"arn": v} for v in policy_arns)
 
     if session is None:
         client = boto3.client(
@@ -293,6 +297,7 @@ def main(
     mfa_session_duration,
     mfa_serial_number,
     assume_role_arn,
+    assume_role_policy_arns,
     force_renew,
     assume_session_duration,
 ):
@@ -396,13 +401,18 @@ def main(
                     access_key,
                     mfa_session,
                     assume_role_arn,
+                    assume_role_policy_arns,
                     assume_session_duration,
                     mfa_serial_number,
                     token_code,
                 )
             else:
                 assume_session = get_assume_session(
-                    access_key, mfa_session, assume_role_arn, assume_session_duration
+                    access_key,
+                    mfa_session,
+                    assume_role_arn,
+                    assume_role_policy_arns,
+                    assume_session_duration,
                 )
 
         if assume_session is None:
@@ -441,6 +451,7 @@ def main(
 )
 @click.option("--assume-session-duration", help="duration in seconds", type=int)
 @click.option("--assume-role-arn", help="IAM Role to be assumed, optional")
+@click.option("--assume-role-policy-arns", help="Assume role with policy ARN, can be used multiple times", multiple=True)
 @click.option("--force-renew", is_flag=True)
 @click.option("--credentials-section", help="Use this section from ~/.aws/credentials")
 @click.option(
@@ -458,6 +469,7 @@ def click_main(
     secret_access_key,
     assume_session_duration,
     assume_role_arn,
+    assume_role_policy_arns,
     force_renew,
     credentials_section,
     pin_entry,
@@ -507,6 +519,8 @@ def click_main(
         config["credentials_section"] = credentials_section
     if pin_entry:
         config["pin_entry"] = pin_entry
+    if assume_role_policy_arns:
+        config["assume_role_policy_arns"] = assume_role_policy_arns
 
     if not config.get("mfa_serial_number"):
         click.echo("Required mfa_serial_number not set", err=True)
@@ -522,6 +536,7 @@ def click_main(
         config.get("mfa_session_duration"),
         config.get("mfa_serial_number"),
         config.get("assume_role_arn"),
+        config.get("assume_role_policy_arns"),
         config.get("force_renew", False),
         config.get("assume_session_duration"),
     )
