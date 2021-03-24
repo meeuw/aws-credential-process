@@ -50,7 +50,8 @@ Options:
   --assume-role-policy-arns TEXT  Assume role with policy ARN, can be used
                                   multiple times
 
-  --force-renew
+  --force-renew-session
+  --force-renew-assume-role
   --credentials-section TEXT      Use this section from ~/.aws/credentials
   --pin-entry TEXT                pin-entry helper, should be compatible with
                                   Assuan protocol (GPG)

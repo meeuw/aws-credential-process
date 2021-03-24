@@ -298,7 +298,8 @@ def main(
     mfa_serial_number,
     assume_role_arn,
     assume_role_policy_arns,
-    force_renew,
+    force_renew_session,
+    force_renew_assume_role,
     assume_session_duration,
 ):
     """
@@ -333,6 +334,9 @@ def main(
 
     if mfa_session_duration is not None:
         mfa_session_duration = int(mfa_session_duration)
+
+    if force_renew_session:
+        force_renew_assume_role = True
 
     def token_code():
         for _ in range(5):
@@ -376,7 +380,7 @@ def main(
         )
 
     if assume_role_arn:
-        if force_renew:
+        if force_renew_assume_role:
             assume_session = None
         else:
             assume_session = AWSCredSession.get_cached_session(
@@ -387,7 +391,7 @@ def main(
             if mfa_session_duration == 0:
                 mfa_session = None
             else:
-                if force_renew:
+                if force_renew_session:
                     mfa_session = get_mfa_session(*mfa_session_request)
                 else:
                     mfa_session = get_mfa_session_cached(*mfa_session_request)
@@ -425,7 +429,7 @@ def main(
             logging.warning("Cannot do MFA without session")
             sys.exit(1)
 
-        if force_renew:
+        if force_renew_session:
             mfa_session = get_mfa_session(*mfa_session_request)
         else:
             mfa_session = get_mfa_session_cached(*mfa_session_request)
@@ -451,8 +455,13 @@ def main(
 )
 @click.option("--assume-session-duration", help="duration in seconds", type=int)
 @click.option("--assume-role-arn", help="IAM Role to be assumed, optional")
-@click.option("--assume-role-policy-arns", help="Assume role with policy ARN, can be used multiple times", multiple=True)
-@click.option("--force-renew", is_flag=True)
+@click.option(
+    "--assume-role-policy-arns",
+    help="Assume role with policy ARN, can be used multiple times",
+    multiple=True,
+)
+@click.option("--force-renew-session", is_flag=True)
+@click.option("--force-renew-assume-role", is_flag=True)
 @click.option("--credentials-section", help="Use this section from ~/.aws/credentials")
 @click.option(
     "--pin-entry",
@@ -470,7 +479,8 @@ def click_main(
     assume_session_duration,
     assume_role_arn,
     assume_role_policy_arns,
-    force_renew,
+    force_renew_session,
+    force_renew_assume_role,
     credentials_section,
     pin_entry,
     log_file,
@@ -513,8 +523,10 @@ def click_main(
         config["assume_session_duration"] = assume_session_duration
     if assume_role_arn:
         config["assume_role_arn"] = assume_role_arn
-    if force_renew:
-        config["force_renew"] = force_renew
+    if force_renew_session:
+        config["force_renew_session"] = force_renew_session
+    if force_renew_assume_role:
+        config["force_renew_assume_role"] = force_renew_assume_role
     if credentials_section:
         config["credentials_section"] = credentials_section
     if pin_entry:
@@ -537,6 +549,7 @@ def click_main(
         config.get("mfa_serial_number"),
         config.get("assume_role_arn"),
         config.get("assume_role_policy_arns"),
-        config.get("force_renew", False),
+        config.get("force_renew_session", False),
+        config.get("force_renew_assume_role", False),
         config.get("assume_session_duration"),
     )
