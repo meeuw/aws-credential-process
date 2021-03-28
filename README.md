@@ -50,6 +50,9 @@ Options:
   --assume-role-policy-arns TEXT  Assume role with policy ARN, can be used
                                   multiple times
 
+  --assume-role-policy TEXT       Assume role with this policy, you can use a
+                                  filename if this value starts with @
+
   --force-renew-session
   --force-renew-assume-role
   --credentials-section TEXT      Use this section from ~/.aws/credentials
