@@ -10,6 +10,8 @@ an MFA authenticated session to assume a role.
 
 ## Installing
 
+### Generic
+
 You can install aws-credential-process using pip:
 
 ```bash
@@ -24,6 +26,13 @@ virtualenv ~/venv/aws_credential_process
 ```
 
 After the above commands you should be able to run `~/venv/aws_credential_process/bin/aws-credential-process`
+
+
+### MacOS (Homebrew)
+
+```bash
+brew install meeuw/aws-credential-process/aws-credential-process
+```
 
 ## Usage
 
