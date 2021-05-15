@@ -35,6 +35,7 @@ Usage: aws-credential-process [OPTIONS]
   Get output suitable for aws credential process
 
 Options:
+  --version                       Show the version and exit.
   --access-key-id TEXT
   --secret-access-key TEXT
   --mfa-oath-slot TEXT            how the MFA slot is named, check using ykman

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aws-credential-process"
-version = "0.13.0"
+version = "0.14.0"
 description = "AWS Credential Process"
 authors = ["Dick Marinus <dick@mrns.nl>"]
 readme = "README.md"

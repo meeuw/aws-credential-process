@@ -1,7 +1,12 @@
+"""
+Tests for aws-credential-process
+"""
 import datetime
 import unittest.mock
-import pytest
 import tempfile
+import pathlib
+
+import toml
 import freezegun
 import click.testing
 import moto
@@ -13,7 +18,7 @@ UTC = datetime.timezone.utc
 def test_load_from_credentials(monkeypatch):
     keyring_set_password = unittest.mock.MagicMock()
     monkeypatch.setattr("keyring.set_password", keyring_set_password)
-    a = aws_credential_process.AWSCredSession.load_from_credentials(
+    aws_credential_process.AWSCredSession.load_from_credentials(
         {
             "Expiration": datetime.datetime(2019, 1, 1, 12, tzinfo=UTC),
             "AccessKeyId": "1234",
@@ -170,3 +175,9 @@ def test_parse_config():
             "mfa_serial_number": "arn:aws:iam::other:mfa/user",
         },
     }
+
+
+def test_version():
+    path = pathlib.Path(__file__).resolve().parents[1] / 'pyproject.toml'
+    pyproject = toml.loads(open(str(path)).read())
+    assert aws_credential_process.__version__ == pyproject['tool']['poetry']['version']

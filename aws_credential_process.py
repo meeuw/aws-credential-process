@@ -29,6 +29,8 @@ with warnings.catch_warnings():
 import pynentry
 import toml
 
+__version__ = "0.14.0"
+
 # Restore logger, set by ykman.cli.__main__ import
 logging.disable(logging.NOTSET)
 
@@ -466,6 +468,7 @@ def main(
 
 
 @click.command()
+@click.version_option(__version__)
 @click.option("--access-key-id")
 @click.option("--secret-access-key")
 @click.option(
