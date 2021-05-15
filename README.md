@@ -62,6 +62,7 @@ Options:
   --log-file TEXT
   --config-section TEXT           Use this section in config-file
   --config-file TEXT
+  --output-format TEXT            Output format, json (default) or shell
   --help                          Show this message and exit.
 ```
 
@@ -71,6 +72,13 @@ aws-credential-process is meant to be used as `credential_process` in your
 ```ini
 [profile yourprofile]
 credential_process = /home/user/venv/aws_credential_process/bin/aws-credential-process --mfa-oath-slot "Amazon Web Services:test@example.com" --mfa-serial-number arn:aws:iam::123456789012:mfa/john.doe --assume-role-arn arn:aws:iam::123456789012:role/YourRole
+```
+
+You can also use aws-credential-process to generate exports for your shell which
+is supported by many tools:
+
+```bash
+$ $(/home/user/venv/aws_credential_process/bin/aws-credential-process --mfa-oath-slot "Amazon Web Services:test@example.com" --mfa-serial-n  umber arn:aws:iam::123456789012:mfa/john.doe --assume-role-arn arn:aws:iam::123456789012:role/YourRole --output shell)
 ```
 
 ## Configuration

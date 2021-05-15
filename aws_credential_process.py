@@ -14,6 +14,7 @@ import logging
 import shutil
 import time
 import warnings
+import textwrap
 
 import click
 import keyring
@@ -47,19 +48,31 @@ class AWSCredSession:
         self.expiration = expiration
         self.label = label
 
-    def json_credentials(self):
-        """
-        JSON output for aws credential process
-        """
-        return json.dumps(
-            {
-                "Version": 1,
-                "AccessKeyId": self.awscred.access_key_id,
-                "SecretAccessKey": self.awscred.secret_access_key,
-                "SessionToken": self.session_token,
-                "Expiration": self.expiration.isoformat(),
-            }
-        )
+    def serialize_credentials(self, fmt="json"):
+        if fmt == "json":
+            """
+            JSON output for aws credential process
+            """
+            return json.dumps(
+                {
+                    "Version": 1,
+                    "AccessKeyId": self.awscred.access_key_id,
+                    "SecretAccessKey": self.awscred.secret_access_key,
+                    "SessionToken": self.session_token,
+                    "Expiration": self.expiration.isoformat(),
+                }
+            )
+        elif fmt == "shell":
+            """
+            Shell output with AWS_ environment variables
+            """
+            return textwrap.dedent(
+                f"""\
+                export AWS_ACCESS_KEY_ID={self.awscred.access_key_id}
+                export AWS_SECRET_ACCESS_KEY={self.awscred.secret_access_key}
+                export AWS_SESSION_TOKEN={self.session_token}
+                """
+            )
 
     @classmethod
     def get_cached_session(cls, label):
@@ -309,6 +322,7 @@ def main(
     force_renew_session,
     force_renew_assume_role,
     assume_session_duration,
+    output_format,
 ):
     """
     Get output suitable for aws credential process
@@ -350,7 +364,7 @@ def main(
         for _ in range(5):
             token_code = None
             if mfa_oath_slot:
-                stdout, _ = ykman_main("oath", "code", "-s", mfa_oath_slot)
+                stdout, _ = ykman_main("oath", "accounts", "code", "-s", mfa_oath_slot)
 
                 if len(stdout) == 1:
                     (token_code,) = stdout
@@ -433,7 +447,7 @@ def main(
             logging.warning("Failed to get assume session")
             sys.exit(1)
         else:
-            print(assume_session.json_credentials())
+            print(assume_session.serialize_credentials(fmt=output_format), end="")
     else:
         if mfa_session_duration == 0:
             logging.warning("Cannot do MFA without session")
@@ -448,7 +462,7 @@ def main(
             logging.warning("Failed to get MFA session")
             sys.exit(1)
         else:
-            print(mfa_session.json_credentials())
+            print(mfa_session.serialize_credentials(fmt=output_format), end="")
 
 
 @click.command()
@@ -484,6 +498,9 @@ def main(
 @click.option("--log-file")
 @click.option("--config-section", help="Use this section in config-file")
 @click.option("--config-file", default="~/.config/aws-credential-process/config.toml")
+@click.option(
+    "--output-format", default="json", help="Output format, json (default) or shell"
+)
 def click_main(
     access_key_id,
     mfa_serial_number,
@@ -501,6 +518,7 @@ def click_main(
     log_file,
     config_section,
     config_file,
+    output_format,
 ):
     """
     Get output suitable for aws credential process
@@ -550,6 +568,8 @@ def click_main(
         config["assume_role_policy_arns"] = assume_role_policy_arns
     if assume_role_policy:
         config["assume_role_policy"] = assume_role_policy
+    if output_format:
+        config["output_format"] = output_format
 
     if not config.get("mfa_serial_number"):
         click.echo("Required mfa_serial_number not set", err=True)
@@ -570,4 +590,5 @@ def click_main(
         config.get("force_renew_session", False),
         config.get("force_renew_assume_role", False),
         config.get("assume_session_duration"),
+        config.get("output_format"),
     )
