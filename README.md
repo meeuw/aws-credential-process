@@ -88,7 +88,7 @@ You can also use aws-credential-process to generate exports for your shell which
 is supported by many tools:
 
 ```bash
-$ $(/home/user/venv/aws_credential_process/bin/aws-credential-process --mfa-oath-slot "Amazon Web Services:test@example.com" --mfa-serial-n  umber arn:aws:iam::123456789012:mfa/john.doe --assume-role-arn arn:aws:iam::123456789012:role/YourRole --output shell)
+$ $(/home/user/venv/aws_credential_process/bin/aws-credential-process --mfa-oath-slot "Amazon Web Services:test@example.com" --mfa-serial-n  umber arn:aws:iam::123456789012:mfa/john.doe --assume-role-arn arn:aws:iam::123456789012:role/YourRole --output-format shell)
 ```
 
 ## Configuration
