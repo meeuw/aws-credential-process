@@ -29,7 +29,7 @@ with warnings.catch_warnings():
 import pynentry
 import toml
 
-__version__ = "0.14.0"
+__version__ = "0.16.0"
 
 # Restore logger, set by ykman.cli.__main__ import
 logging.disable(logging.NOTSET)
@@ -205,6 +205,7 @@ def get_assume_session(
     role_arn,
     policy_arns,
     policy,
+    source_identity,
     duration_seconds=None,
     serial_number=None,
     token_code=None,
@@ -232,6 +233,9 @@ def get_assume_session(
                 policy = f.read()
         request["Policy"] = policy
 
+    if source_identity:
+        request["SourceIdentity"] = source_identity
+
     if session is None:
         client = boto3.client(
             "sts",
@@ -257,7 +261,7 @@ def get_assume_session(
 
 
 def get_assume_session_cached(
-    access_key, session, role_arn, duration_seconds, serial_number=None, token_code=None
+    access_key, session, role_arn, policy_arns, policy, source_identity, duration_seconds, serial_number=None, token_code=None
 ):
     """
     Get session for assumed role with caching
@@ -268,7 +272,7 @@ def get_assume_session_cached(
 
     if assume_session is None:
         assume_session = get_assume_session(
-            access_key, session, role_arn, duration_seconds, serial_number, token_code
+            access_key, session, role_arn, policy_arns, policy, source_identity, duration_seconds, serial_number, token_code
         )
     return assume_session
 
@@ -321,6 +325,7 @@ def main(
     assume_role_arn,
     assume_role_policy_arns,
     assume_role_policy,
+    assume_role_source_identity,
     force_renew_session,
     force_renew_assume_role,
     assume_session_duration,
@@ -431,6 +436,7 @@ def main(
                     assume_role_arn,
                     assume_role_policy_arns,
                     assume_role_policy,
+                    assume_role_source_identity,
                     assume_session_duration,
                     mfa_serial_number,
                     token_code,
@@ -442,6 +448,7 @@ def main(
                     assume_role_arn,
                     assume_role_policy_arns,
                     assume_role_policy,
+                    assume_role_source_identity,
                     assume_session_duration,
                 )
 
@@ -491,6 +498,10 @@ def main(
     "--assume-role-policy",
     help="Assume role with this policy, you can use a filename if this value starts with @",
 )
+@click.option(
+    "--assume-role-source-identity",
+    help="The source identity specified by the principal that is calling the AssumeRole operation.",
+)
 @click.option("--force-renew-session", is_flag=True)
 @click.option("--force-renew-assume-role", is_flag=True)
 @click.option("--credentials-section", help="Use this section from ~/.aws/credentials")
@@ -514,6 +525,7 @@ def click_main(
     assume_role_arn,
     assume_role_policy_arns,
     assume_role_policy,
+    assume_role_source_identity,
     force_renew_session,
     force_renew_assume_role,
     credentials_section,
@@ -571,6 +583,8 @@ def click_main(
         config["assume_role_policy_arns"] = assume_role_policy_arns
     if assume_role_policy:
         config["assume_role_policy"] = assume_role_policy
+    if assume_role_source_identity:
+        config["assume_role_source_identity"] = assume_role_source_identity
     if output_format:
         config["output_format"] = output_format
 
@@ -590,6 +604,7 @@ def click_main(
         config.get("assume_role_arn"),
         config.get("assume_role_policy_arns"),
         config.get("assume_role_policy"),
+        config.get("assume_role_source_identity"),
         config.get("force_renew_session", False),
         config.get("force_renew_assume_role", False),
         config.get("assume_session_duration"),
