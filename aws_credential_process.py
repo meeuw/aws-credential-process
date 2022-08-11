@@ -29,7 +29,7 @@ with warnings.catch_warnings():
 import pynentry
 import toml
 
-__version__ = "0.16.0"
+__version__ = "0.18.0"
 
 # Restore logger, set by ykman.cli.__main__ import
 logging.disable(logging.NOTSET)
@@ -51,10 +51,11 @@ class AWSCredSession:
         self.label = label
 
     def serialize_credentials(self, fmt="json"):
+        """
+        Serialize credentials to fmt (json or shell)
+        """
         if fmt == "json":
-            """
-            JSON output for aws credential process
-            """
+            # JSON output for aws credential process
             return json.dumps(
                 {
                     "Version": 1,
@@ -64,10 +65,8 @@ class AWSCredSession:
                     "Expiration": self.expiration.isoformat(),
                 }
             )
-        elif fmt == "shell":
-            """
-            Shell output with AWS_ environment variables
-            """
+        if fmt == "shell":
+            # Shell output with AWS_ environment variables
             return textwrap.dedent(
                 f"""\
                 export AWS_ACCESS_KEY_ID={self.awscred.access_key_id}
@@ -75,6 +74,7 @@ class AWSCredSession:
                 export AWS_SESSION_TOKEN={self.session_token}
                 """
             )
+        assert False, f"unknown format {fmt}"
 
     @classmethod
     def get_cached_session(cls, label):
@@ -199,6 +199,7 @@ def get_mfa_session_cached(
     return mfa_session
 
 
+# # pylint: disable=too-many-arguments
 def get_assume_session(
     access_key,
     session,
@@ -254,14 +255,22 @@ def get_assume_session(
 
     assume_session = AWSCredSession.load_from_credentials(
         response["Credentials"],
-        "{}-assume-session-{}".format(access_key.access_key_id, role_arn),
+        f"{access_key.access_key_id}-assume-session-{role_arn}",
     )
 
     return assume_session
 
 
 def get_assume_session_cached(
-    access_key, session, role_arn, policy_arns, policy, source_identity, duration_seconds, serial_number=None, token_code=None
+    access_key,
+    session,
+    role_arn,
+    policy_arns,
+    policy,
+    source_identity,
+    duration_seconds,
+    serial_number=None,
+    token_code=None,
 ):
     """
     Get session for assumed role with caching
@@ -272,7 +281,15 @@ def get_assume_session_cached(
 
     if assume_session is None:
         assume_session = get_assume_session(
-            access_key, session, role_arn, policy_arns, policy, source_identity, duration_seconds, serial_number, token_code
+            access_key,
+            session,
+            role_arn,
+            policy_arns,
+            policy,
+            source_identity,
+            duration_seconds,
+            serial_number,
+            token_code,
         )
     return assume_session
 
@@ -304,6 +321,9 @@ def traverse_config(config, accumulated, flattened):
 
 
 def parse_config(config):
+    """
+    flatten/fold configurations
+    """
     flattened = {}
     traverse_config(config, {}, flattened)
     for pk, pv in flattened.items():

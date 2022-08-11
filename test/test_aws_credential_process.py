@@ -5,41 +5,89 @@ import datetime
 import unittest.mock
 import tempfile
 import pathlib
+import textwrap
 
 import toml
 import freezegun
 import click.testing
 import moto
 import aws_credential_process
+import pytest
+import keyring
+
+
+class MemKeyring(keyring.backend.KeyringBackend):
+    priority = 1
+
+    def __init__(self):
+        self.passwords = {}
+
+    def create_if_not_exist(self, servicename):
+        if not servicename in self.passwords:
+            self.passwords[servicename] = {}
+
+    def set_password(self, servicename, username, password):
+        self.create_if_not_exist(servicename)
+        self.passwords[servicename][username] = password
+
+    def get_password(self, servicename, username):
+        print(f"servicename: {servicename}, username: {username}")
+        self.create_if_not_exist(servicename)
+        return self.passwords[servicename].get(username)
+
+    def delete_password(self, servicename, username):
+        self.create_if_not_exist(servicename)
+        del self.passwords[servicename][username]
+
 
 UTC = datetime.timezone.utc
 
 
-def test_load_from_credentials(monkeypatch):
-    keyring_set_password = unittest.mock.MagicMock()
-    monkeypatch.setattr("keyring.set_password", keyring_set_password)
-    aws_credential_process.AWSCredSession.load_from_credentials(
-        {
-            "Expiration": datetime.datetime(2019, 1, 1, 12, tzinfo=UTC),
-            "AccessKeyId": "1234",
-            "SecretAccessKey": "1234",
-            "SessionToken": "1234",
-        },
-        "test",
+@pytest.fixture
+def awscredsession():
+    return aws_credential_process.AWSCredSession(
+        aws_credential_process.AWSCred(
+            access_key_id="access_key_id", secret_access_key="secret_access_key"
+        ),
+        "session_token",
+        datetime.datetime(2022, 8, 11),
+        "label",
     )
-    assert keyring_set_password.mock_calls == [
-        unittest.mock.call(
-            "aws_credential_process",
+
+
+def test_load_from_credentials():
+    """
+    Test load_from_credentials
+    """
+    keyring.set_keyring(MemKeyring())
+    assert (
+        "1234"
+        == aws_credential_process.AWSCredSession.load_from_credentials(
+            {
+                "Expiration": datetime.datetime(2019, 1, 1, 12, tzinfo=UTC),
+                "AccessKeyId": "1234",
+                "SecretAccessKey": "1234",
+                "SessionToken": "1234",
+            },
             "test",
-            '{"expiration": "2019-01-01T12:00:00+00:00", "access_key_id": "1234", "secret_access_key": "1234", "session_token": "1234"}',
-        )
-    ]
+        ).session_token
+    )
+    assert (
+        keyring.get_password("aws_credential_process", "test")
+        == '{"expiration": "2019-01-01T12:00:00+00:00", "access_key_id": "1234", "secret_access_key": "1234", "session_token": "1234"}'
+    )
 
 
-def test_get_cached_session(monkeypatch):
-    keyring_get_password = unittest.mock.MagicMock()
-    keyring_get_password.return_value = '{"expiration": "2019-01-01T12:00:00+00:00", "access_key_id": "1234", "secret_access_key": "1234", "session_token": "1234"}'
-    monkeypatch.setattr("keyring.get_password", keyring_get_password)
+def test_get_cached_session():
+    """
+    Test get_cached_session from keyring
+    """
+    keyring.set_keyring(MemKeyring())
+    keyring.set_password(
+        "aws_credential_process",
+        "test",
+        '{"expiration": "2019-01-01T12:00:00+00:00", "access_key_id": "1234", "secret_access_key": "1234", "session_token": "1234"}',
+    )
     with freezegun.freeze_time("2019-01-01"):
         a = aws_credential_process.AWSCredSession.get_cached_session("test")
         assert a.expiration == datetime.datetime(2019, 1, 1, 12, 0, tzinfo=UTC)
@@ -48,12 +96,7 @@ def test_get_cached_session(monkeypatch):
 
 
 def test_main(monkeypatch):
-    keyring_get_password = unittest.mock.MagicMock()
-    keyring_get_password.return_value = '{"expiration": "2019-01-01T12:00:00+00:00", "access_key_id": "1234", "secret_access_key": "1234", "session_token": "1234"}'
-    monkeypatch.setattr("keyring.get_password", keyring_get_password)
-
-    keyring_set_password = unittest.mock.MagicMock()
-    monkeypatch.setattr("keyring.set_password", keyring_set_password)
+    keyring.set_keyring(MemKeyring())
 
     def mock_ykman(args):
         print("123456")
@@ -104,14 +147,29 @@ def test_mock_get_credentials(monkeypatch):
 
 def test_get_credentials(monkeypatch):
     with tempfile.NamedTemporaryFile() as credentials:
-        credentials.write(b"""[default]\naa = bbb""")
+        credentials.write(
+            textwrap.dedent(
+                """
+            [default]
+            aws_access_key_id = aws_access_key_id
+            aws_secret_access_key = aws_secret_access_key
+        """
+            ).encode("utf8")
+        )
         credentials.flush()
         expanduser = unittest.mock.MagicMock(return_value=credentials.name)
         monkeypatch.setattr("os.path.expanduser", expanduser)
-    aws_credential_process.get_credentials("default")
+        assert aws_credential_process.get_credentials("default") == (
+            "aws_access_key_id",
+            "aws_secret_access_key",
+        )
+        assert aws_credential_process.get_credentials("invalid") == (None, None)
 
 
 def test_parse_config():
+    """
+    Test parse_config to see if the configurations are properly folded
+    """
     assert aws_credential_process.parse_config(
         {
             "org": [
@@ -178,6 +236,47 @@ def test_parse_config():
 
 
 def test_version():
-    path = pathlib.Path(__file__).resolve().parents[1] / 'pyproject.toml'
+    """
+    Make sure the version from pyproject.toml and aws_credential_process are equal
+    """
+    path = pathlib.Path(__file__).resolve().parents[1] / "pyproject.toml"
     pyproject = toml.loads(open(str(path)).read())
-    assert aws_credential_process.__version__ == pyproject['tool']['poetry']['version']
+    assert aws_credential_process.__version__ == pyproject["tool"]["poetry"]["version"]
+
+
+def test_awscredsession(awscredsession):
+    assert (
+        awscredsession.serialize_credentials("json")
+        == '{"Version": 1, "AccessKeyId": "access_key_id", "SecretAccessKey": "secret_access_key", "SessionToken": "session_token", "Expiration": "2022-08-11T00:00:00"}'
+    )
+    assert awscredsession.serialize_credentials("shell") == textwrap.dedent(
+        """\
+            export AWS_ACCESS_KEY_ID=access_key_id
+            export AWS_SECRET_ACCESS_KEY=secret_access_key
+            export AWS_SESSION_TOKEN=session_token
+        """
+    )
+    with pytest.raises(AssertionError):
+        awscredsession.serialize_credentials("invalid")
+
+
+def test_get_assume_session_cached(awscredsession):
+    """
+    Test get_assume_session_cached
+    """
+    keyring.set_keyring(MemKeyring())
+    with moto.mock_sts():
+        assert isinstance(
+            aws_credential_process.get_assume_session_cached(
+                awscredsession.awscred,
+                None,
+                "arn:aws:iam::account:role/role-name-with-path",
+                ["arn:aws:iam::account:policy/policy-name-with-path"],
+                None,
+                "source_identity",
+                3600,
+                "serial_number",
+                lambda: "123456",
+            ).session_token,
+            str,
+        )
