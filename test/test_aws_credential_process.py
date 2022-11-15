@@ -274,6 +274,7 @@ def test_get_assume_session_cached(awscredsession):
                 ["arn:aws:iam::account:policy/policy-name-with-path"],
                 None,
                 "source_identity",
+                "role_session_name",
                 3600,
                 "serial_number",
                 lambda: "123456",

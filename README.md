@@ -49,26 +49,27 @@ Options:
   --secret-access-key TEXT
   --mfa-oath-slot TEXT            how the MFA slot is named, check using ykman
                                   oath code
-
   --mfa-serial-number TEXT        MFA serial number, see IAM console
   --mfa-session-duration INTEGER  duration in seconds, use zero to assume role
                                   without session
-
   --assume-session-duration INTEGER
                                   duration in seconds
   --assume-role-arn TEXT          IAM Role to be assumed, optional
   --assume-role-policy-arns TEXT  Assume role with policy ARN, can be used
                                   multiple times
-
   --assume-role-policy TEXT       Assume role with this policy, you can use a
                                   filename if this value starts with @
-
+  --assume-role-source-identity TEXT
+                                  The source identity specified by the
+                                  principal that is calling the AssumeRole
+                                  operation.
+  --assume-role-role-session-name TEXT
+                                  An identifier for the assumed role session.
   --force-renew-session
   --force-renew-assume-role
   --credentials-section TEXT      Use this section from ~/.aws/credentials
   --pin-entry TEXT                pin-entry helper, should be compatible with
                                   Assuan protocol (GPG)
-
   --log-file TEXT
   --config-section TEXT           Use this section in config-file
   --config-file TEXT
