@@ -101,7 +101,7 @@ def test_main(monkeypatch):
     def mock_ykman(args):
         print("123456")
 
-    monkeypatch.setattr("ykman.cli.__main__.cli.main", mock_ykman)
+    monkeypatch.setattr("ykman._cli.__main__.cli.main", mock_ykman)
 
     with moto.mock_sts():
         runner = click.testing.CliRunner()

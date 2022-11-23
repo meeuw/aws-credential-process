@@ -24,12 +24,12 @@ from cryptography.utils import CryptographyDeprecationWarning
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
-    import ykman.cli.__main__
+    import ykman._cli.__main__
 
 import pynentry
 import toml
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"
 
 # Restore logger, set by ykman.cli.__main__ import
 logging.disable(logging.NOTSET)
@@ -146,7 +146,7 @@ def ykman_main(*args):
     with contextlib.redirect_stderr(stderr):
         with contextlib.redirect_stdout(stdout):
             try:
-                ykman.cli.__main__.cli.main(args=args)
+                ykman._cli.__main__.cli.main(args=args)
             except SystemExit:
                 pass
     return stdout.getvalue().splitlines(), stderr.getvalue().splitlines()
